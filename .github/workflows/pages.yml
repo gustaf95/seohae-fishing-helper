@@ -16,6 +16,12 @@ concurrency:
 
 jobs:
   deploy:
+    # 워크플로 레벨 permissions 가 무시되는 경우를 대비해 job 에서도 명시한다
+    # (deploy-pages 가 OIDC 토큰을 받으려면 id-token: write 가 반드시 필요)
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
