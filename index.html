@@ -169,7 +169,6 @@
     <div class="topbar">
       <span class="who">👤 <b id="nickShow">나</b></span>
       <button class="ghost sm" id="btnNick">별명 변경</button>
-      <button class="ghost sm" id="btnLock">🔒 잠금</button>
     </div>
     <div id="pointList" class="points"></div>
     <details id="addBox" style="margin-top:10px">
@@ -382,13 +381,6 @@ async function unlockApp(){
     }
   }catch(e){ setConn(false,'연결 실패: '+e.message); }
 }
-function lockApp(){
-  if(unsub){unsub();unsub=null}
-  roomCode=''; points=[]; activeKey=null;
-  renderRoomUI();
-  $('#pinInput').value=''; $('#pinErr').classList.add('hide');
-  $('#pinInput').focus();
-}
 function changeNick(){
   const v=prompt('별명을 입력하세요. 포인트에 누가 추가했는지 표시돼요.', nickname==='나'?'':nickname);
   if(v===null) return;
@@ -543,7 +535,6 @@ function init(){
   });
   pin.addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock()});
   $('#btnUnlock').onclick=tryUnlock;
-  $('#btnLock').onclick=lockApp;
   $('#btnNick').onclick=changeNick;
   $('#btnGeo').onclick=()=>{
     if(!navigator.geolocation){alert('위치 기능을 지원하지 않는 브라우저예요.');return}
