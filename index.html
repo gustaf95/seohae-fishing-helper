@@ -297,6 +297,10 @@ function nowKST(){
 function todayISO(){const t=nowKST();return `${t.y}-${String(t.m).padStart(2,'0')}-${String(t.d).padStart(2,'0')}`}
 function isoObj(iso){const [y,m,d]=iso.split('-').map(Number);return {y,m,d}}
 function isoDow(iso){const o=isoObj(iso);return new Date(Date.UTC(o.y,o.m-1,o.d)).getUTCDay()}
+// 네이버 지도: c=경도,위도,줌 으로 좌표에 지도를 맞추고, 이름으로 검색해 마커를 띄운다
+function naverMapUrl(p){
+  return `https://map.naver.com/p/search/${encodeURIComponent(p.name)}?c=${p.lon},${p.lat},15,0,0,0,dh`;
+}
 
 //////////////////// 물때 / 달 ////////////////////
 const SYN=29.530588853, NEWMOON0=Date.UTC(2000,0,6,18,14,0);
@@ -496,7 +500,7 @@ function renderRecs(p){
     div.innerHTML=`<div class="d"><b>${s.dist.toFixed(0)}</b><span>km</span></div>
       <div class="m"><div class="n">${s.name}</div><div class="f">${s.note} · <b>${sea.fish.slice(0,3).join('·')}</b></div></div>
       <button class="ghost sm addBtn">＋등록</button>
-      <a class="link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}">지도</a>`;
+      <a class="link" target="_blank" rel="noopener" href="${naverMapUrl(s)}">지도</a>`;
     div.querySelector('.addBtn').onclick=()=>addPoint(s.name,s.lat,s.lon);
     el.appendChild(div);
   });
