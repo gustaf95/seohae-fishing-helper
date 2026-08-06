@@ -60,14 +60,9 @@
   .pt .x:hover{opacity:1}
   .empty{color:var(--muted);font-size:13px;padding:6px 2px}
 
-  .room{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .room .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg2);border:1px solid var(--line);
-    padding:8px 12px;border-radius:10px;font-size:15px;font-weight:700;color:var(--accent2);letter-spacing:.5px}
   .conn{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
   .dot{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block}
   .dot.on{background:var(--good);box-shadow:0 0 6px var(--good)}
-  .invite{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:10px 12px}
-  .invite b{color:var(--accent2)}
 
   .days{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));gap:9px;overflow-x:auto;padding-bottom:6px}
   .day{background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:11px 8px;text-align:center;min-width:112px;cursor:pointer;transition:.15s}
@@ -121,6 +116,32 @@
   .loading{color:var(--muted);font-size:13px;padding:16px 2px;text-align:center}
   .hide{display:none}
   .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:8px;line-height:1.7}
+
+  /* 잠금 화면 */
+  .lock{max-width:380px;margin:34px auto 16px;text-align:center;padding:28px 22px}
+  .lock .lockIco{font-size:44px;line-height:1;margin-bottom:10px}
+  .lock h2{justify-content:center;font-size:17px;margin:0 0 6px}
+  .lock .sub{margin-bottom:18px}
+  #pinInput{
+    text-align:center;font-size:30px;font-weight:700;letter-spacing:14px;
+    padding:14px 12px 14px 26px;
+    font-family:ui-monospace,Menlo,Consolas,monospace
+  }
+  #pinInput::placeholder{color:var(--muted);opacity:.3}
+  .pinErr{
+    margin-top:13px;font-size:12.5px;color:var(--bad);line-height:1.5;
+    background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);
+    border-radius:10px;padding:9px 11px
+  }
+  @keyframes shake{
+    10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)}
+    30%,50%,70%{transform:translateX(-7px)} 40%,60%{transform:translateX(7px)}
+  }
+  .shake{animation:shake .5s}
+
+  .topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
+  .topbar .who{font-size:12.5px;color:var(--muted);margin-right:auto}
+  .topbar .who b{color:var(--txt);font-weight:700}
 </style>
 </head>
 <body>
@@ -131,34 +152,25 @@
 
 <div class="wrap">
 
-  <!-- 공유 방 -->
-  <div class="card">
-    <h2>👥 공유 방 <span id="connState" class="conn"><span class="dot"></span>연결 대기</span></h2>
-    <!-- 방 참여 전 -->
-    <div id="roomSetup">
-      <p class="sub">친구와 <b style="color:var(--accent2)">같은 방 코드</b>를 입력하면 낚시 포인트를 실시간으로 함께 관리해요.</p>
-      <div class="row">
-        <div><label>내 별명</label><input id="nickInput" placeholder="예: 지훈" maxlength="12"></div>
-        <div><label>방 코드 (친구와 동일하게)</label><input id="roomInput" placeholder="예: 우리낚시팀2026"></div>
-      </div>
-      <div class="btnrow"><button id="btnJoin">방 입장 / 만들기</button></div>
-      <p class="sub" style="margin-top:10px">💡 처음이면 아무 코드나 정해서 만들고, 그 코드를 친구에게 알려주세요. 친구는 같은 코드로 입장하면 돼요.</p>
-    </div>
-    <!-- 방 참여 후 -->
-    <div id="roomActive" class="hide">
-      <div class="room">
-        <span class="muted" style="font-size:12.5px">방 코드</span>
-        <span class="code" id="roomCodeShow">–</span>
-        <button class="ghost sm" id="btnCopy">📋 복사</button>
-        <button class="ghost sm" id="btnLeave">방 나가기</button>
-      </div>
-      <div class="invite" id="inviteBox"></div>
-    </div>
+  <!-- 잠금 화면 -->
+  <div id="lockScreen" class="card lock">
+    <div class="lockIco">🔒</div>
+    <h2>비밀번호 입력</h2>
+    <p class="sub">4자리 비밀번호를 입력하면 낚시 도우미가 열려요</p>
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*"
+           maxlength="4" autocomplete="off" placeholder="••••">
+    <div class="btnrow"><button id="btnUnlock">열기</button></div>
+    <div id="pinErr" class="pinErr hide"></div>
   </div>
 
   <!-- 포인트 등록 -->
   <div id="pointCard" class="card hide">
-    <h2>📍 우리 낚시 포인트 <span class="muted" style="font-weight:400;font-size:12px">· 실시간 공유</span></h2>
+    <h2>📍 우리 낚시 포인트 <span id="connState" class="conn"><span class="dot"></span>연결 대기</span></h2>
+    <div class="topbar">
+      <span class="who">👤 <b id="nickShow">나</b></span>
+      <button class="ghost sm" id="btnNick">별명 변경</button>
+      <button class="ghost sm" id="btnLock">🔒 잠금</button>
+    </div>
     <div id="pointList" class="points"></div>
     <details id="addBox" style="margin-top:10px">
       <summary style="cursor:pointer;color:var(--accent);font-size:13px;font-weight:600">＋ 포인트 추가</summary>
@@ -219,7 +231,7 @@
 
   <div class="foot">
     날씨·파고: Open‑Meteo (실시간) · 물때/달: 자체 계산 · 포인트 공유: Firebase · 조석 정밀: 국립해양조사원<br>
-    포인트는 방 코드별로 실시간 공유돼요.
+    포인트는 비밀번호를 아는 사람들끼리 실시간으로 공유돼요.
   </div>
 </div>
 
@@ -262,7 +274,9 @@ function seasonFish(month){
 const $ = s=>document.querySelector(s);
 const KST='Asia/Seoul';
 const DOW=["일","월","화","수","목","금","토"];
-let roomCode = localStorage.getItem('fishRoom')||'';
+const PINS = ["6972","0116"];   // 잠금 해제 비밀번호
+const ROOM = "seohae-crew";     // 비밀번호를 아는 사람들이 함께 쓰는 고정 방
+let roomCode = '';              // 잠금 해제되면 ROOM 이 들어감
 let nickname = localStorage.getItem('fishNick')||'나';
 let activeKey = localStorage.getItem('fishActiveKey')||null;
 let selISO = null;
@@ -284,7 +298,6 @@ function nowKST(){
 function todayISO(){const t=nowKST();return `${t.y}-${String(t.m).padStart(2,'0')}-${String(t.d).padStart(2,'0')}`}
 function isoObj(iso){const [y,m,d]=iso.split('-').map(Number);return {y,m,d}}
 function isoDow(iso){const o=isoObj(iso);return new Date(Date.UTC(o.y,o.m-1,o.d)).getUTCDay()}
-function sanitizeRoom(s){return (s||'').trim().replace(/[.#$\[\]\/\s]+/g,'-').slice(0,40)}
 
 //////////////////// 물때 / 달 ////////////////////
 const SYN=29.530588853, NEWMOON0=Date.UTC(2000,0,6,18,14,0);
@@ -338,15 +351,29 @@ function fitScore(wind,wave,prob){
   if(s>=70)return["good","좋음"]; if(s>=45)return["ok","보통"]; return["bad","주의"];
 }
 
-//////////////////// Firebase 방 ////////////////////
+//////////////////// 잠금 / Firebase 방 ////////////////////
 function roomPointsRef(){return ref(db,`rooms/${roomCode}/points`)}
 
-async function joinRoom(code){
-  code=sanitizeRoom(code);
-  if(!code){alert('방 코드를 입력하세요.');return}
-  nickname=($('#nickInput').value.trim()||nickname||'나').slice(0,12);
-  localStorage.setItem('fishNick',nickname);
-  roomCode=code; localStorage.setItem('fishRoom',roomCode);
+function tryUnlock(){
+  const v=($('#pinInput').value||'').replace(/\D/g,'');
+  if(PINS.includes(v)){
+    $('#pinErr').classList.add('hide');
+    $('#pinInput').value='';
+    unlockApp();
+    return;
+  }
+  showPinError(v.length<4 ? '4자리 숫자를 모두 입력해 주세요.' : '비밀번호가 올바르지 않아요. 다시 입력해 주세요.');
+}
+function showPinError(msg){
+  const err=$('#pinErr'); err.textContent=msg; err.classList.remove('hide');
+  const box=$('#lockScreen');
+  box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+  const inp=$('#pinInput'); inp.value=''; inp.focus();
+}
+async function unlockApp(){
+  roomCode=ROOM;
+  renderRoomUI();
+  attachListener();
   // 방이 비어 있으면 기본 포인트(시화나래) 1개 넣어주기
   try{
     const snap=await get(roomPointsRef());
@@ -354,8 +381,20 @@ async function joinRoom(code){
       await push(roomPointsRef(),{name:"시화나래 조력공원(방조제)",lat:37.3126,lon:126.6033,by:nickname,addedAt:Date.now()});
     }
   }catch(e){ setConn(false,'연결 실패: '+e.message); }
-  attachListener();
+}
+function lockApp(){
+  if(unsub){unsub();unsub=null}
+  roomCode=''; points=[]; activeKey=null;
   renderRoomUI();
+  $('#pinInput').value=''; $('#pinErr').classList.add('hide');
+  $('#pinInput').focus();
+}
+function changeNick(){
+  const v=prompt('별명을 입력하세요. 포인트에 누가 추가했는지 표시돼요.', nickname==='나'?'':nickname);
+  if(v===null) return;
+  nickname=(v.trim()||'나').slice(0,12);
+  localStorage.setItem('fishNick',nickname);
+  renderRoomUI(); renderPoints();
 }
 function attachListener(){
   if(unsub) unsub();
@@ -368,25 +407,15 @@ function attachListener(){
     renderPoints(); loadDashboard();
   }, err=>{ setConn(false,'연결 오류: '+err.message); });
 }
-function leaveRoom(){
-  if(unsub){unsub();unsub=null}
-  roomCode=''; localStorage.removeItem('fishRoom');
-  points=[]; activeKey=null;
-  renderRoomUI();
-}
 function setConn(on,txt){
   const el=$('#connState'); el.innerHTML=`<span class="dot ${on?'on':''}"></span>${txt}`;
 }
 function renderRoomUI(){
-  const joined=!!roomCode;
-  $('#roomSetup').classList.toggle('hide',joined);
-  $('#roomActive').classList.toggle('hide',!joined);
-  $('#pointCard').classList.toggle('hide',!joined);
-  $('#dashboard').classList.toggle('hide',!joined);
-  if(joined){
-    $('#roomCodeShow').textContent=roomCode;
-    $('#inviteBox').innerHTML=`👋 <b>${nickname}</b>님으로 입장했어요. 친구에게 <b>이 방 코드</b>와 사이트 주소를 알려주면, 친구도 같은 코드로 입장해 <b>같은 포인트를 실시간으로</b> 함께 관리해요.`;
-  }
+  const unlocked=!!roomCode;
+  $('#lockScreen').classList.toggle('hide',unlocked);
+  $('#pointCard').classList.toggle('hide',!unlocked);
+  $('#dashboard').classList.toggle('hide',!unlocked);
+  $('#nickShow').textContent=nickname;
 }
 
 //////////////////// 렌더 ////////////////////
@@ -501,18 +530,21 @@ function addPoint(name,lat,lon){
 //////////////////// 초기화 ////////////////////
 function init(){
   selISO=todayISO();
-  $('#nickInput').value = nickname==='나'?'':nickname;
   const sel=$('#preset');
   PRESETS.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name;sel.appendChild(o)});
   sel.onchange=()=>{const p=PRESETS[sel.value];if(p){$('#pName').value=p.name;$('#pLat').value=p.lat;$('#pLon').value=p.lon}};
   $('#btnAdd').onclick=()=>addPoint($('#pName').value,$('#pLat').value,$('#pLon').value);
-  $('#btnJoin').onclick=()=>joinRoom($('#roomInput').value);
-  $('#roomInput').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom($('#roomInput').value)});
-  $('#btnLeave').onclick=leaveRoom;
-  $('#btnCopy').onclick=async()=>{
-    try{ await navigator.clipboard.writeText(roomCode); $('#btnCopy').textContent='✅ 복사됨'; setTimeout(()=>$('#btnCopy').textContent='📋 복사',1500); }
-    catch(e){ prompt('아래 방 코드를 복사하세요:', roomCode); }
-  };
+  // 잠금 화면: 숫자만 허용하고 4자리가 채워지면 바로 확인
+  const pin=$('#pinInput');
+  pin.addEventListener('input',()=>{
+    pin.value=pin.value.replace(/\D/g,'').slice(0,4);
+    $('#pinErr').classList.add('hide');
+    if(pin.value.length===4) tryUnlock();
+  });
+  pin.addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock()});
+  $('#btnUnlock').onclick=tryUnlock;
+  $('#btnLock').onclick=lockApp;
+  $('#btnNick').onclick=changeNick;
   $('#btnGeo').onclick=()=>{
     if(!navigator.geolocation){alert('위치 기능을 지원하지 않는 브라우저예요.');return}
     $('#btnGeo').textContent='측정 중…';
@@ -522,7 +554,7 @@ function init(){
       {enableHighAccuracy:true,timeout:10000});
   };
   renderRoomUI();
-  if(roomCode){ attachListener(); }  // 이전에 입장한 방 자동 재접속
+  pin.focus();   // 앱을 열면 항상 잠금 화면부터
 }
 init();
 </script>
