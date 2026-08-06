@@ -9,3 +9,6 @@ Desktop.ini
 
 # Logs / temp
 *.log
+
+# Netlify Drop용 임시 배포 폴더 (로컬 전용)
+deploy/
