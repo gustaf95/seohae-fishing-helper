@@ -400,11 +400,24 @@ const WMO={0:["☀️","맑음"],1:["🌤️","대체로 맑음"],2:["⛅","구�
 71:["🌨️","약한 눈"],73:["🌨️","눈"],75:["❄️","강한 눈"],80:["🌦️","소나기"],81:["🌧️","소나기"],82:["⛈️","강한 소나기"],
 95:["⛈️","뇌우"],96:["⛈️","우박 뇌우"],99:["⛈️","우박 뇌우"]};
 function windDir(deg){return ["북","북동","동","남동","남","남서","서","북서"][Math.round(deg/45)%8]}
-function fitScore(wind,wave,prob){
-  let s=100;
-  if(wind>=10)s-=55;else if(wind>=7)s-=32;else if(wind>=5)s-=15;
-  if(wave!=null){if(wave>=1.5)s-=45;else if(wave>=1.0)s-=25;else if(wave>=0.6)s-=10}
-  if(prob>=70)s-=30;else if(prob>=40)s-=15;
+// 100점 만점 가중치 합산 = 물때 30 + 강수확률 30 + 바람 30 + 파고 10
+function fitScore(wind,wave,prob,strength){
+  let s=0;
+  // 물때 30점 — 사리일수록 물이 많이 움직여 입질이 좋다
+  if(strength>=70)      s+=30;   // 사리
+  else if(strength>=46) s+=15;   // 중물
+                                 // 조금(45↓) 0점
+  // 강수확률 30점
+  if(prob<40)      s+=30;
+  else if(prob<70) s+=15;
+  // 바람 30점
+  if(wind<5)       s+=30;
+  else if(wind<7)  s+=20;
+  else if(wind<10) s+=10;
+  // 파고 10점 — Marine API 가 파고를 못 주면(null) 감점 대신 만점 처리한다.
+  // 이전 로직도 파고가 없으면 그냥 건너뛰었으므로 동작을 그대로 유지한다.
+  if(wave==null||wave<0.6) s+=10;
+  else if(wave<1.0)        s+=5;
   if(s>=70)return["good","좋음"]; if(s>=45)return["ok","보통"]; return["bad","주의"];
 }
 
@@ -528,7 +541,7 @@ async function loadWeather(p){
       const iso=d.time[i],o=isoObj(iso),dow=isoDow(iso);
       const [ico,desc]=WMO[d.weather_code[i]]||["❓","-"];
       const wind=d.wind_speed_10m_max[i],prob=d.precipitation_probability_max[i]??0,wave=waves?waves[i]:null;
-      const [fc,ft]=fitScore(wind,wave,prob);
+      const [fc,ft]=fitScore(wind,wave,prob,moonInfo(o).strength);
       const pw=primeWindows(o,p.lon).slice(0,2).map(w=>`${fmt(w.s)}~${fmt(w.e)}`).join(' · ');
       const cell=document.createElement('div'); cell.className='day'+(iso===selISO?' sel':''); cell.dataset.iso=iso;
       cell.innerHTML=`<div class="dow ${dow===0?'sun':dow===6?'sat':''}">${iso.slice(5).replace('-','/')} (${DOW[dow]})</div>
