@@ -56,6 +56,9 @@
   .pt.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04212f;border-color:transparent;font-weight:700}
   .pt small{opacity:.7;font-weight:400;font-size:11px}
   .pt.active small{color:#04212f;opacity:.8}
+  .pt .map{opacity:.65;font-size:14px;line-height:1;padding:0 2px;text-decoration:none}
+  .pt .map:hover{opacity:1}
+  .pt.active .map{opacity:.85}
   .pt .x{opacity:.6;font-size:15px;line-height:1;padding:0 2px}
   .pt .x:hover{opacity:1}
   .empty{color:var(--muted);font-size:13px;padding:6px 2px}
@@ -426,7 +429,11 @@ function renderPoints(){
   points.forEach(p=>{
     const d=document.createElement('div');
     d.className='pt'+(p.key===activeKey?' active':'');
-    d.innerHTML=`<span>📍 ${p.name}${p.by?` <small>· ${p.by}</small>`:''}</span><span class="x" title="삭제">✕</span>`;
+    d.innerHTML=`<span>📍 ${p.name}${p.by?` <small>· ${p.by}</small>`:''}</span>`
+      +`<a class="map" target="_blank" rel="noopener" title="네이버 지도에서 보기" href="${naverMapUrl(p)}">🗺️</a>`
+      +`<span class="x" title="삭제">✕</span>`;
+    // 지도 아이콘 클릭이 칩 선택으로 번지지 않게 한다
+    d.querySelector('.map').onclick=(e)=>e.stopPropagation();
     d.onclick=(e)=>{ if(!e.target.classList.contains('x')){activeKey=p.key;localStorage.setItem('fishActiveKey',activeKey);renderPoints();loadDashboard()} };
     d.querySelector('.x').onclick=(e)=>{
       e.stopPropagation();
