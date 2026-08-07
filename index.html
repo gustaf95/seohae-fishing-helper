@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>해안 낚시 도우미 · 서해</title>
+<!-- Leaflet: API 키 없이 OpenStreetMap 타일을 쓰는 지도 라이브러리 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root{
     --bg:#0b1220; --bg2:#111c30; --card:#16233c; --card2:#1d2f4f;
@@ -151,6 +153,34 @@
   .topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
   .topbar .who{font-size:12.5px;color:var(--muted);margin-right:auto}
   .topbar .who b{color:var(--txt);font-weight:700}
+
+  /* 포인트 추가 버튼 + 지도 피커 모달 */
+  .addbtn{
+    width:100%;margin-top:11px;background:var(--chip);color:var(--accent);
+    border:1px dashed var(--line);font-size:13.5px
+  }
+  .addbtn:hover{border-color:var(--accent);filter:none}
+  .modal{
+    position:fixed;inset:0;z-index:50;background:rgba(4,10,22,.72);
+    backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:14px
+  }
+  .sheet{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:16px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto
+  }
+  .sheetHead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .sheetHead b{font-size:15px;color:#dbe7ff;margin-right:auto}
+  #pickMap{
+    height:44vh;min-height:240px;margin-top:6px;border-radius:12px;
+    border:1px solid var(--line);background:var(--bg2);z-index:0
+  }
+  .leaflet-container{background:var(--bg2)}
+  .pickCoord{
+    margin-top:9px;font-size:12px;color:var(--muted);background:var(--bg2);
+    border:1px solid var(--line);border-radius:10px;padding:8px 11px;
+    font-family:ui-monospace,Menlo,Consolas,monospace
+  }
+  .pickCoord.set{color:var(--accent2);border-color:rgba(56,189,248,.4)}
 </style>
 </head>
 <body>
@@ -180,22 +210,28 @@
       <button class="ghost sm" id="btnNick">별명 변경</button>
     </div>
     <div id="pointList" class="points"></div>
-    <details id="addBox" style="margin-top:10px">
-      <summary style="cursor:pointer;color:var(--accent);font-size:13px;font-weight:600">＋ 포인트 추가</summary>
+    <button id="btnOpenPick" class="addbtn">＋ 포인트 추가</button>
+  </div>
+
+  <!-- 지도에서 위치 찍기 -->
+  <div id="pickModal" class="modal hide">
+    <div class="sheet">
+      <div class="sheetHead">
+        <b>🗺️ 지도에서 위치 찍기</b>
+        <button class="ghost sm" id="btnPickClose">닫기</button>
+      </div>
+      <p class="sub">지도를 탭하면 그 자리에 핀이 찍혀요. 핀을 끌어서 미세 조정할 수 있어요.</p>
       <label>빠른 선택 (서해 인기 포인트)</label>
-      <select id="preset"><option value="">직접 입력…</option></select>
-      <div class="row">
-        <div><label>이름</label><input id="pName" placeholder="예: 오이도 빨간등대"></div>
-      </div>
-      <div class="row">
-        <div><label>위도 (lat)</label><input id="pLat" inputmode="decimal" placeholder="37.3454"></div>
-        <div><label>경도 (lon)</label><input id="pLon" inputmode="decimal" placeholder="126.6873"></div>
-      </div>
+      <select id="preset"><option value="">직접 찍기…</option></select>
+      <div id="pickMap"></div>
+      <div id="pickCoord" class="pickCoord">아직 위치를 찍지 않았어요</div>
+      <label>포인트 이름</label>
+      <input id="pName" placeholder="예: 오이도 빨간등대" maxlength="30">
       <div class="btnrow">
         <button class="ghost" id="btnGeo">📡 현재 위치</button>
-        <button id="btnAdd">추가</button>
+        <button id="btnAdd">확인</button>
       </div>
-    </details>
+    </div>
   </div>
 
   <div id="dashboard" class="hide">
@@ -243,6 +279,8 @@
   </div>
 </div>
 
+<!-- 일반 스크립트라 아래 module 보다 먼저 실행된다 → 전역 L 사용 가능 -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getDatabase, ref, onValue, push, remove, get } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
@@ -529,14 +567,67 @@ function loadDashboard(){
 }
 
 //////////////////// 등록 ////////////////////
+// 성공하면 true. 추천 포인트의 '＋등록' 버튼도 이 함수를 그대로 쓴다.
 function addPoint(name,lat,lon){
   name=(name||'').trim(); lat=parseFloat(lat); lon=parseFloat(lon);
-  if(!name){alert('포인트 이름을 입력하세요.');return}
-  if(isNaN(lat)||isNaN(lon)){alert('위도/경도를 확인하세요.');return}
-  if(points.some(x=>x.name===name)){alert('같은 이름의 포인트가 이미 있어요.');return}
+  if(!name){alert('포인트 이름을 입력하세요.');return false}
+  if(isNaN(lat)||isNaN(lon)){alert('지도에서 위치를 먼저 찍어 주세요.');return false}
+  if(points.some(x=>x.name===name)){alert('같은 이름의 포인트가 이미 있어요.');return false}
   push(roomPointsRef(),{name,lat,lon,by:nickname,addedAt:Date.now()});
-  $('#pName').value='';$('#pLat').value='';$('#pLon').value='';$('#preset').value='';
-  $('#addBox').open=false;
+  return true;
+}
+
+//////////////////// 지도에서 위치 찍기 ////////////////////
+const SEOHAE_CENTER=[37.28,126.62];   // 서해 시흥·안산 일대
+let pickMap=null, pickMarker=null, picked=null;
+
+function setPick(lat,lon,zoom){
+  picked={lat:+lat.toFixed(5), lon:+lon.toFixed(5)};
+  const ll=[picked.lat,picked.lon];
+  if(!pickMarker){
+    pickMarker=L.marker(ll,{draggable:true}).addTo(pickMap);
+    pickMarker.on('dragend',()=>{const p=pickMarker.getLatLng(); setPick(p.lat,p.lng)});
+  }else{
+    pickMarker.setLatLng(ll);
+  }
+  if(zoom) pickMap.setView(ll,zoom); else pickMap.panTo(ll);
+  const c=$('#pickCoord');
+  c.textContent=`📍 위도 ${picked.lat} / 경도 ${picked.lon}`;
+  c.classList.add('set');
+}
+function buildPickMap(){
+  pickMap=L.map('pickMap',{zoomControl:true}).setView(SEOHAE_CENTER,10);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(pickMap);
+  pickMap.on('click',e=>setPick(e.latlng.lat,e.latlng.lng));
+}
+function openPicker(){
+  $('#pickModal').classList.remove('hide');
+  if(!pickMap) buildPickMap();
+  // 숨겨진 상태로 만들어졌으면 크기를 모르므로 표시 후 다시 계산해야 한다
+  setTimeout(()=>pickMap.invalidateSize(),60);
+}
+function closePicker(){
+  $('#pickModal').classList.add('hide');
+  $('#pName').value=''; $('#preset').value='';
+  picked=null;
+  if(pickMarker){ pickMap.removeLayer(pickMarker); pickMarker=null; }
+  const c=$('#pickCoord'); c.textContent='아직 위치를 찍지 않았어요'; c.classList.remove('set');
+}
+function confirmPick(){
+  if(!picked){ alert('지도를 탭해서 위치를 먼저 찍어 주세요.'); return; }
+  if(addPoint($('#pName').value,picked.lat,picked.lon)) closePicker();
+}
+function locateMe(){
+  if(!navigator.geolocation){alert('위치 기능을 지원하지 않는 브라우저예요.');return}
+  const b=$('#btnGeo'); b.textContent='측정 중…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ b.textContent='📡 현재 위치'; setPick(pos.coords.latitude,pos.coords.longitude,15);
+           if(!$('#pName').value) $('#pName').value='내 위치'; },
+    err=>{ b.textContent='📡 현재 위치'; alert('위치를 가져오지 못했어요. 지도에서 직접 찍어 주세요.\n('+err.message+')') },
+    {enableHighAccuracy:true,timeout:10000});
 }
 
 //////////////////// 초기화 ////////////////////
@@ -544,8 +635,17 @@ function init(){
   selISO=todayISO();
   const sel=$('#preset');
   PRESETS.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name;sel.appendChild(o)});
-  sel.onchange=()=>{const p=PRESETS[sel.value];if(p){$('#pName').value=p.name;$('#pLat').value=p.lat;$('#pLon').value=p.lon}};
-  $('#btnAdd').onclick=()=>addPoint($('#pName').value,$('#pLat').value,$('#pLon').value);
+  sel.onchange=()=>{const p=PRESETS[sel.value];if(p){$('#pName').value=p.name;setPick(p.lat,p.lon,14)}};
+  // 지도 피커
+  $('#btnOpenPick').onclick=openPicker;
+  $('#btnPickClose').onclick=closePicker;
+  $('#btnAdd').onclick=confirmPick;
+  $('#btnGeo').onclick=locateMe;
+  $('#pName').addEventListener('keydown',e=>{if(e.key==='Enter')confirmPick()});
+  $('#pickModal').addEventListener('click',e=>{ if(e.target.id==='pickModal') closePicker() });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&!$('#pickModal').classList.contains('hide')) closePicker();
+  });
   // 잠금 화면: 숫자만 허용하고 4자리가 채워지면 바로 확인
   const pin=$('#pinInput');
   pin.addEventListener('input',()=>{
@@ -556,14 +656,6 @@ function init(){
   pin.addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock()});
   $('#btnUnlock').onclick=tryUnlock;
   $('#btnNick').onclick=changeNick;
-  $('#btnGeo').onclick=()=>{
-    if(!navigator.geolocation){alert('위치 기능을 지원하지 않는 브라우저예요.');return}
-    $('#btnGeo').textContent='측정 중…';
-    navigator.geolocation.getCurrentPosition(
-      pos=>{$('#pLat').value=pos.coords.latitude.toFixed(5);$('#pLon').value=pos.coords.longitude.toFixed(5);$('#btnGeo').textContent='📡 현재 위치';if(!$('#pName').value)$('#pName').value='내 위치';},
-      err=>{$('#btnGeo').textContent='📡 현재 위치';alert('위치를 가져오지 못했어요. 좌표를 직접 입력해 주세요.\n('+err.message+')')},
-      {enableHighAccuracy:true,timeout:10000});
-  };
   renderRoomUI();
   pin.focus();   // 앱을 열면 항상 잠금 화면부터
 }
