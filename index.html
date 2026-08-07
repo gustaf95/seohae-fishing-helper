@@ -156,14 +156,7 @@
   .bar{height:8px;background:var(--bg2);border-radius:6px;overflow:hidden;margin:9px 0 4px}
   .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
 
-  .rise-head{margin:16px 0 8px;font-size:13.5px;font-weight:700;color:var(--good);display:flex;align-items:center;gap:7px}
-  .rises{display:flex;gap:10px;flex-wrap:wrap}
-  .rw{flex:1;min-width:150px;background:linear-gradient(135deg,rgba(52,211,153,.12),rgba(34,211,238,.08));border:1px solid rgba(52,211,153,.35);border-radius:12px;padding:11px 13px}
-  .rw .r1{font-size:11px;color:var(--muted)}
-  .rw .r2{font-size:18px;font-weight:800;margin:2px 0 5px;letter-spacing:-.3px}
-  .rw .r2 .ar{color:var(--good);margin:0 6px}
-  .rw .r3{font-size:12px;color:var(--good);font-weight:700;background:rgba(52,211,153,.14);border-radius:7px;padding:3px 7px;display:inline-block}
-  .highline{margin-top:12px;font-size:12px;color:var(--muted)}
+  .highline{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.7}
   .highline b{color:#cfe0ff}
 
   .rec{display:flex;flex-direction:column;gap:9px}
@@ -310,7 +303,7 @@
     <!-- 물때 -->
     <div class="card" id="tideCard">
       <h2>🌊 물때 · 낚시 좋은 시간 <span id="tideDate" style="color:var(--accent2);font-weight:700;font-size:13px"></span></h2>
-      <p class="sub">‘물 들어오는 시간(들물)’이 해안 낚시가 잘 되는 때예요</p>
+      <p class="sub">‘물 들어오는 시간(들물)’이 해안 낚시가 잘 되는 때예요 · 시간대별 들물 구간은 아래 <b style="color:var(--accent2)">시간대별 상세</b>에서 볼 수 있어요</p>
       <div class="tide">
         <div class="moon" id="moonIco">🌑</div>
         <div class="tinfo">
@@ -320,10 +313,9 @@
           <div style="font-size:12px" id="strTxt" class="muted"></div>
         </div>
       </div>
-      <div class="rise-head">🌊 물 들어오는 시간 · 낚시 추천</div>
-      <div class="rises" id="rises"></div>
       <div class="highline" id="highLine"></div>
-      <div style="margin-top:11px"><a class="link" id="khoaLink" target="_blank" rel="noopener" href="#">🔎 국립해양조사원에서 정확한 물때 확인 →</a></div>
+      <div style="margin-top:11px"><a class="link" target="_blank" rel="noopener"
+        href="https://www.khoa.go.kr/swtc/main.do">🔎 국립해양조사원 스마트 조석예보(물때표)에서 정확한 물때 확인 →</a></div>
     </div>
 
     <!-- 시간대별 상세 (실험적) -->
@@ -474,7 +466,6 @@ function tideDay(o,lon){
 }
 const pad=n=>String(n).padStart(2,'0');
 function fmt(t){t=Math.max(0,Math.min(23.999,t));let h=Math.floor(t),m=Math.round((t-h)*60);if(m===60){h++;m=0}return pad(h)+":"+pad(m)}
-function period(t){const h=Math.floor(t);return h<5?'새벽':h<9?'아침':h<12?'오전':h<17?'오후':h<20?'저녁':'밤'}
 function primeWindows(o,lon){return tideDay(o,lon).rises.map(r=>({s:Math.max(r.s,r.high-3),e:Math.min(24,r.high)})).filter(w=>w.e-w.s>0.2)}
 
 //////////////////// 날씨 ////////////////////
@@ -623,16 +614,12 @@ function renderTide(p){
   const sb=$('#springBadge'); sb.textContent=mi.isSpring?'사리 (물 많이 들어옴)':(mi.strength<=45?'조금 (물 적게)':'중물'); sb.className='badge '+(mi.isSpring?'spring':'neap');
   $('#strBar').style.width=mi.strength+'%';
   $('#strTxt').textContent=`${mi.strength}% · ${mi.strength>=70?'유속 강함 — 무거운 봉돌 권장':mi.strength<=45?'물 움직임 적음 — 입질 약할 수 있어요':'무난한 물때'}`;
-  const rs=$('#rises'); rs.innerHTML='';
-  if(!td.rises.length) rs.innerHTML='<div class="muted" style="font-size:12px">이 날은 들물 구간 계산이 어려워요.</div>';
-  td.rises.forEach(r=>{
-    const ps=Math.max(r.s,r.high-3),pe=r.high;
-    const div=document.createElement('div'); div.className='rw';
-    div.innerHTML=`<div class="r1">${period(r.s)} · 물 들어옴</div><div class="r2">${fmt(r.s)}<span class="ar">→</span>${fmt(r.e)}</div><div class="r3">🎯 특히 좋은 때 ${fmt(ps)}~${fmt(pe)}</div>`;
-    rs.appendChild(div);
-  });
-  $('#highLine').innerHTML=td.highs.length?`⛰️ 물이 가장 많이 찼을 때(만조): <b>${td.highs.map(fmt).join(', ')}</b> — 이후엔 물이 빠지니 갯벌에서 나오세요`:'';
-  $('#khoaLink').href='https://www.khoa.go.kr/oceangrid/koofs/kor/tide/tide.do?lat='+p.lat+'&lon='+p.lon;
+  // 요약만 남긴다. 들물 구간·추천 시간은 아래 '시간대별 상세' 카드가 보여준다.
+  $('#highLine').innerHTML=td.highs.length
+    ? `⛰️ 물이 가장 많이 찼을 때(만조): <b>${td.highs.map(fmt).join(', ')}</b>`
+      + (td.lows.length?` · 가장 많이 빠졌을 때(간조): <b>${td.lows.map(fmt).join(', ')}</b>`:'')
+      + ` — 만조 이후엔 물이 빠지니 갯벌에서 나오세요`
+    : '';
   renderHourly(p);
 }
 
