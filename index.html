@@ -297,9 +297,12 @@ function nowKST(){
 function todayISO(){const t=nowKST();return `${t.y}-${String(t.m).padStart(2,'0')}-${String(t.d).padStart(2,'0')}`}
 function isoObj(iso){const [y,m,d]=iso.split('-').map(Number);return {y,m,d}}
 function isoDow(iso){const o=isoObj(iso);return new Date(Date.UTC(o.y,o.m-1,o.d)).getUTCDay()}
-// 네이버 지도: c=경도,위도,줌 으로 좌표에 지도를 맞추고, 이름으로 검색해 마커를 띄운다
+// 네이버 지도: 길찾기 도착지에 좌표를 직접 넘겨 그 지점에 핀을 찍는다.
+// 이름 검색(/p/search/)은 방파제처럼 POI 등록이 안 된 곳을 못 찾으므로 쓰지 않는다.
+// 형식: /p/directions/{출발}/{도착}/{경유}/{수단}, 도착 = 경도,위도,이름,장소ID,타입
 function naverMapUrl(p){
-  return `https://map.naver.com/p/search/${encodeURIComponent(p.name)}?c=${p.lon},${p.lat},15,0,0,0,dh`;
+  const goal=`${p.lon},${p.lat},${encodeURIComponent(p.name)},,`;
+  return `https://map.naver.com/p/directions/-/${goal}/-/car?c=${p.lon},${p.lat},15,0,0,0,dh`;
 }
 
 //////////////////// 물때 / 달 ////////////////////
