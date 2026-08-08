@@ -61,6 +61,11 @@
   .pt .nm{flex:1;min-width:0}             /* 이름이 남은 폭을 모두 차지 */
   .pt small{opacity:.7;font-weight:400;font-size:11px}
   .pt.active small{color:#04212f;opacity:.8}
+  .pt .dist{
+    flex:none;white-space:nowrap;font-size:11px;font-weight:700;color:var(--muted);
+    background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:3px 7px
+  }
+  .pt.active .dist{color:#04212f;background:rgba(255,255,255,.45);border-color:transparent}
   .pt .map,.pt .edit{
     flex:none;white-space:nowrap;font-size:11.5px;font-weight:600;text-decoration:none;
     color:var(--accent);background:var(--bg2);border:1px solid var(--line);
@@ -342,6 +347,7 @@
     <!-- 추천 포인트 -->
     <div class="card">
       <h2>🧭 주변 추천 포인트 <span id="season" class="muted" style="font-weight:400;font-size:12px"></span></h2>
+      <p class="sub" id="recsBase"></p>
       <div id="recs" class="rec"></div>
     </div>
   </div>
@@ -407,6 +413,7 @@ let selISO = null;
 let points = [];      // [{key,name,lat,lon,memo,by,addedAt}]
 let unsub = null;     // firebase 리스너 해제 함수
 let HRLY=null, MHRLY=null;   // Open‑Meteo 시간별 응답 (시간대별 상세 카드에서 재사용)
+let myPos=null;              // {lat,lon} — 허용됐을 때만. 거리 계산 기준으로 쓴다
 
 //////////////////// 유틸 ////////////////////
 function haversine(a,b,c,d){
@@ -540,6 +547,7 @@ async function unlockApp(){
       await push(roomPointsRef(),{name:"시화나래 조력공원(방조제)",lat:37.3126,lon:126.6033,by:nickname,addedAt:Date.now()});
     }
   }catch(e){ setConn(false,'연결 실패: '+e.message); }
+  locateForDistance();   // 잠금이 풀려 앱이 실제로 열린 시점에 위치를 물어본다
 }
 function changeNick(){
   const v=prompt('별명을 입력하세요. 포인트에 누가 추가했는지 표시돼요.', nickname==='나'?'':nickname);
@@ -588,7 +596,10 @@ function renderPoints(){
     const d=document.createElement('div');
     d.className='pt'+(p.key===activeKey?' active':'');
     const hasMemo=!!(p.memo||'').trim();
+    // 내 위치를 알 때만 거리를 붙인다
+    const km=myPos?haversine(myPos.lat,myPos.lon,p.lat,p.lon):null;
     d.innerHTML=`<span class="nm">📍 ${p.name}${hasMemo?' 📝':''}${p.by?` <small>· ${p.by}</small>`:''}</span>`
+      +(km!=null?`<span class="dist" title="내 위치에서 직선거리">${km.toFixed(1)}km</span>`:'')
       +`<button class="edit" title="이름·위치·메모 편집">편집</button>`
       +`<a class="map" target="_blank" rel="noopener" title="네이버 지도에서 보기" href="${naverMapUrl(p)}">지도</a>`
       +`<span class="x" title="삭제">✕</span>`;
@@ -715,7 +726,12 @@ async function loadWeather(p){
 function renderRecs(p){
   const t=nowKST(),sea=seasonFish(t.m);
   $('#season').textContent=`· ${sea.name} 제철: ${sea.fish.join(', ')}`;
-  const all=PRESETS.map(s=>({...s,dist:haversine(p.lat,p.lon,s.lat,s.lon)})).filter(s=>s.dist>0.3).sort((a,b)=>a.dist-b.dist).slice(0,6);
+  // 내 위치를 알면 그걸 기준으로, 모르면 예전처럼 선택된 포인트를 기준으로 잰다
+  const org=myPos||{lat:p.lat,lon:p.lon};
+  $('#recsBase').textContent=myPos
+    ? '📡 내 위치에서 가까운 순 · 직선거리예요'
+    : `📍 '${p.name}' 기준 · 위치를 허용하면 내 위치에서 재요`;
+  const all=PRESETS.map(s=>({...s,dist:haversine(org.lat,org.lon,s.lat,s.lon)})).filter(s=>s.dist>0.3).sort((a,b)=>a.dist-b.dist).slice(0,6);
   const el=$('#recs'); el.innerHTML='';
   all.forEach(s=>{
     const div=document.createElement('div'); div.className='spot';
@@ -732,6 +748,25 @@ function loadDashboard(){
   if(!roomCode||!points.length) return;
   const p=points.find(x=>x.key===activeKey)||points[0];
   loadWeather(p); renderRecs(p);
+}
+// 추천 목록만 다시 그린다(날씨는 다시 받지 않는다)
+function refreshRecs(){
+  if(!points.length) return;
+  const p=points.find(x=>x.key===activeKey)||points[0];
+  if(p) renderRecs(p);
+}
+// 앱을 열면 한 번 위치를 물어본다. 거부하거나 실패하면 조용히 기존 방식을 쓴다.
+function locateForDistance(){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      myPos={lat:pos.coords.latitude, lon:pos.coords.longitude};
+      renderPoints();   // 칩에 거리 표시
+      refreshRecs();    // 추천 목록을 내 위치 기준으로 다시 정렬
+    },
+    ()=>{},             // 거부/실패 — myPos 는 null 로 두고 선택 포인트 기준 유지
+    {enableHighAccuracy:false, timeout:10000, maximumAge:300000}
+  );
 }
 
 //////////////////// 등록 / 편집 ////////////////////
